@@ -1,7 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { ToastContainer, toast } from 'react-toastify'
+
 import 'react-toastify/dist/ReactToastify.css'
+
 
 const Manager = () => {
     const ref = useRef()
@@ -9,11 +11,17 @@ const Manager = () => {
     const [form, setForm] = useState({ site: "", username: "", password: "" })
     const [passwordArray, setPasswordArray] = useState([])
 
+    const getPasswords = async() => {
+        let req = await fetch("http://localhost:3000/")
+        let passwords = await req.json()
+        console.log(passwords)
+        setPasswordArray(passwords)
+    }
+    
+
     useEffect(() => {
-        let passwords = localStorage.getItem("passwords")
-        if (passwords) {
-            setPasswordArray(JSON.parse(passwords))
-        }
+        getPasswords()
+        
     }, []);
 
     const copyText = (text) => {
@@ -43,12 +51,19 @@ const Manager = () => {
         }
     }
 
-    const savePassword = () => {
+    const savePassword = async() => {
         if (form.site.length > 3 && form.username.length > 3 && form.password.length > 3) {
+            
+            // If any such id exists in the db, delete it
+            await fetch("http://localhost:3000/", { method: "DELETE", headers:{ "Content-Type": "application/json"},
+            body: JSON.stringify({ id: form.id}) })
+            
             setPasswordArray([...passwordArray, { ...form, id: uuidv4() }]);
-            localStorage.setItem("passwords", JSON.stringify([...passwordArray, { ...form, id: uuidv4() }]));
-            console.log([...passwordArray, form])
-            setForm({ site: "", username: "", password: "" });
+            await fetch("http://localhost:3000/", { method: "POST", headers:{ "Content-Type": "application/json"},
+            body:JSON.stringify({...form, id:uuidv4()})})
+            // localStorage.setItem("passwords", JSON.stringify([...passwordArray, { ...form, id: uuidv4() }]));
+            // console.log([...passwordArray, form])
+            setForm({ site: "", username: "", password: "" })
             toast('Password saved!', {
                 position: "top-right",
                 autoClose: 5000,
@@ -65,12 +80,15 @@ const Manager = () => {
         } 
     }
 
-    const deletePassword = (id) => {
+    const deletePassword = async(id) => {
         console.log("Deleting password with id", id)
         let c = confirm("Are you sure you want to delete password?")
         if (c) {
             setPasswordArray(passwordArray.filter(item => item.id !== id))
-            localStorage.setItem("passwords", JSON.stringify(passwordArray.filter(item => item.id !== id)))
+            // localStorage.setItem("passwords", JSON.stringify(passwordArray.filter(item => item.id !== id)))
+            let res = await fetch("http://localhost:3000/", { method: "DELETE", headers:{ "Content-Type": "application/json"},
+            body: JSON.stringify({ id})})
+
             toast('Password Deleted!', {
                 position: "top-right",
                 autoClose: 5000,
@@ -86,7 +104,7 @@ const Manager = () => {
 
     const updatePassword = (id) => {
         console.log("Editing password with id", id)
-        setForm(passwordArray.filter(i => i.id === id)[0])
+        setForm({...passwordArray.filter(i => i.id === id)[0], id: id})
         setPasswordArray(passwordArray.filter(item => item.id !== id))
     }
 
@@ -184,7 +202,7 @@ const Manager = () => {
                                         </td>
                                         <td className="py-2 border border-white text-center w-1/4 p-2">
                                             <div className="flex items-center justify-center">
-                                                <span>{item.password}</span>
+                                                <span>{"*".repeat(item.password.length)}</span>
                                                 <div className="size-7 cursor-pointer flex items-center justify-center gap-2" onClick={() => { copyText(item.password) }}>
                                                     <img
                                                         style={{ "width": "20px", "height": "20px", "paddingTop": "3px", "paddingLeft": "3px" }}
